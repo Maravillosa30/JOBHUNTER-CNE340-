@@ -4,15 +4,12 @@
 # Collaborator: Rasmane Sawadogo
 
 
-
-
 import mysql.connector
 import time
 import json
 import requests
 from datetime import date
 import html2text
-
 
 # Connect to database
 # You may need to edit the connect function based on your local settings.#I made a password for my database because it is important to do so. Also make sure MySQL server is running or it will not connect
@@ -48,9 +45,9 @@ def add_new_job(cursor, jobdetails):
     company = jobdetails['company_name']
     description = html2text.html2text(jobdetails['description'])
     date = jobdetails['publication_date'][0:10]
-    query = cursor.execute("INSERT INTO jobs( Job_id, url, Title, company,Description, Created_at " ") "
-               "VALUES(%s,%s,%s,%s,%s)", (job_id, url, title, company,description, date))
-     # %s is what is needed for Mysqlconnector as SQLite3 uses ? the Mysqlconnector uses %s
+    query = cursor.execute("INSERT INTO jobs( Job_id, url, Title, company, Description, Created_at " ")" 
+                           "VALUES(%s,%s,%s,%s,%s, %s)", (job_id, url, title, company, description, date))
+    # %s is what is needed for Mysqlconnector as SQLite3 uses ? the Mysqlconnector uses %s
     return query_sql(cursor, query)
 
 
@@ -60,9 +57,10 @@ def check_if_job_exists(cursor, jobdetails):
     query = "SELECT * FROM jobs WHERE job_id = \"%s\"" % jobdetails['id']
     return query_sql(cursor, query)
 
+
 # Deletes job
 def delete_job(cursor, jobdetails):
-    job_id = jobdetails['job_id'] # New code added
+    job_id = jobdetails['job_id']  # New code added
     query = "DELETE FROM jobs WHERE Job_id = \"%s\"" % job_id
     return query_sql(cursor, query)
 
@@ -95,7 +93,7 @@ def add_or_delete_job(jobpage, cursor):
         if is_job_found:
             print("job is found: " + jobdetails["title"] + " from " + jobdetails["company_name"])
         else:
-            print("New job is found: " + jobdetails["title"] +" from " + jobdetails["company_name"])
+            print("New job is found: " + jobdetails["title"] + " from " + jobdetails["company_name"])
             add_new_job(cursor, jobdetails)
             notify_user("New job posted!", jobdetails["title"])
 
@@ -117,9 +115,9 @@ def check_expired_job_postings(cursor):
     for job in job_postings:
         job_id = job[0]
         job_date = job[1]
-        diff = now - job_date # source: https://stackoverflow.com/questions/151199/how-to-calculate-number-of-days-between-two-given-dates
+        diff = now - job_date  # source: https://stackoverflow.com/questions/151199/how-to-calculate-number-of-days-between-two-given-dates
         if diff.days > 14:
-           delete_job(cursor, {"job_id": job_id})
+            delete_job(cursor, {"job_id": job_id})
 
     print("all jobs are now up to date")
 
@@ -133,14 +131,15 @@ def main():
     cursor = conn.cursor()
     create_tables(cursor)
 
-    while (1):  # Infinite Loops. Only way to kill it is to crash or manually crash it. We did this as a background process/passive scraper
+    while (
+    1):  # Infinite Loops. Only way to kill it is to crash or manually crash it. We did this as a background process/passive scraper
         jobhunt(cursor)
         check_expired_job_postings(cursor)
-        time.sleep(14400)  # Sleep for 4h, this is ran every hour because API or web interfaces have request limits. Your reqest will get blocked.
+        time.sleep(
+            14400)  # Sleep for 4h, this is ran every hour because API or web interfaces have request limits. Your reqest will get blocked.
 
 
 # Sleep does a rough cycle count, system is not entirely accurate
 # If you want to test if script works change time.sleep() to 10 seconds and delete your table in MySQL
 if __name__ == '__main__':
     main()
-
