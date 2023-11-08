@@ -1,3 +1,11 @@
+# Name: Rosa Hulbert
+# NETWORK DATABASES (SQL) Fall Quarter 2023 - CNE 340 – 11/07/2023
+# Challenge: Job Hunter
+# Collaborator: Rasmane Sawadogo
+
+
+
+
 import mysql.connector
 import time
 import json
@@ -33,30 +41,35 @@ def query_sql(cursor, query):
 # Add a new job
 def add_new_job(cursor, jobdetails):
     # extract all required columns
+    # New code added
+    job_id = jobdetails['id']
+    url = jobdetails['url']
+    title = jobdetails['title']
+    company = jobdetails['company_name']
     description = html2text.html2text(jobdetails['description'])
     date = jobdetails['publication_date'][0:10]
-    query = cursor.execute("INSERT INTO jobs( Description, Created_at " ") "
-               "VALUES(%s,%s)", (  description, date))
+    query = cursor.execute("INSERT INTO jobs( Job_id, url, Title, company,Description, Created_at " ") "
+               "VALUES(%s,%s,%s,%s,%s)", (job_id, url, title, company,description, date))
      # %s is what is needed for Mysqlconnector as SQLite3 uses ? the Mysqlconnector uses %s
     return query_sql(cursor, query)
 
 
 # Check if new job
 def check_if_job_exists(cursor, jobdetails):
-    ##Add your code here
-    query = "UPDATE"
+    job_id = jobdetails['id']  # New code added
+    query = "SELECT * FROM jobs WHERE job_id = \"%s\"" % jobdetails['id']
     return query_sql(cursor, query)
 
 # Deletes job
 def delete_job(cursor, jobdetails):
-    ##Add your code here
-    query = "UPDATE"
+    job_id = jobdetails['job_id'] # New code added
+    query = "DELETE FROM jobs WHERE Job_id = \"%s\"" % job_id
     return query_sql(cursor, query)
 
 
 # Grab new jobs from a website, Parses JSON code and inserts the data into a list of dictionaries do not need to edit
 def fetch_new_jobs():
-    query = requests.get("https://remotive.io/api/remote-jobs")
+    query = requests.get("https://remotive.com/api/remote-jobs")
     datas = json.loads(query.text)
 
     return datas
@@ -76,14 +89,39 @@ def add_or_delete_job(jobpage, cursor):
     for jobdetails in jobpage['jobs']:  # EXTRACTS EACH JOB FROM THE JOB LIST. It errored out until I specified jobs. This is because it needs to look at the jobs dictionary from the API. https://careerkarma.com/blog/python-typeerror-int-object-is-not-iterable/
         # Add in your code here to check if the job already exists in the DB
         check_if_job_exists(cursor, jobdetails)
-        is_job_found = len(
-        cursor.fetchall()) > 0  # https://stackoverflow.com/questions/2511679/python-number-of-rows-affected-by-cursor-executeselect
+        is_job_found = len(cursor.fetchall()) > 0  # https://stackoverflow.com/questions/2511679/python-number-of-rows-affected-by-cursor-executeselect
+
+        # New code added
         if is_job_found:
-
+            print("job is found: " + jobdetails["title"] + " from " + jobdetails["company_name"])
         else:
-            # INSERT JOB
-            # Add in your code here to notify the user of a new posting. This code will notify the new user
+            print("New job is found: " + jobdetails["title"] +" from " + jobdetails["company_name"])
+            add_new_job(cursor, jobdetails)
+            notify_user("New job posted!", jobdetails["title"])
 
+
+# Add in your code here to notify the user of a new posting. This code will notify the new user
+def notify_user(message, job_title):  # New code added
+    print(message)
+    print("Job Title:", job_title)
+
+
+# New code added
+def check_expired_job_postings(cursor):
+    cursor.execute("SELECT Job_id, Created_at FROM jobs")
+    job_postings = cursor.fetchall()
+    now = date.today()
+
+    print("\nchecking for expired jobs...")
+
+    for job in job_postings:
+        job_id = job[0]
+        job_date = job[1]
+        diff = now - job_date # source: https://stackoverflow.com/questions/151199/how-to-calculate-number-of-days-between-two-given-dates
+        if diff.days > 14:
+           delete_job(cursor, {"job_id": job_id})
+
+    print("all jobs are now up to date")
 
 
 # Setup portion of the program. Take arguments and set up the script
@@ -97,7 +135,8 @@ def main():
 
     while (1):  # Infinite Loops. Only way to kill it is to crash or manually crash it. We did this as a background process/passive scraper
         jobhunt(cursor)
-        time.sleep(21600)  # Sleep for 1h, this is ran every hour because API or web interfaces have request limits. Your reqest will get blocked.
+        check_expired_job_postings(cursor)
+        time.sleep(14400)  # Sleep for 4h, this is ran every hour because API or web interfaces have request limits. Your reqest will get blocked.
 
 
 # Sleep does a rough cycle count, system is not entirely accurate
